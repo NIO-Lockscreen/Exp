@@ -1,0 +1,90 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>YouTube Embed Test</title>
+  <style>
+    body {
+      background-color: #111;
+      color: white;
+      font-family: sans-serif;
+      padding: 1em;
+    }
+    iframe {
+      width: 100%;
+      height: 200px;
+      margin-bottom: 20px;
+      border: none;
+    }
+    button {
+      padding: 10px 15px;
+      margin-top: 10px;
+      background-color: #333;
+      color: white;
+      border: none;
+      border-radius: 6px;
+      cursor: pointer;
+    }
+    .section {
+      margin-bottom: 40px;
+    }
+  </style>
+</head>
+<body>
+  <h1>YouTube Video Embed Workarounds</h1>
+
+  <div class="section">
+    <h2>1. Standard YouTube Embed</h2>
+    <iframe
+      src="https://www.youtube.com/embed/dQw4w9WgXcQ?autoplay=0"
+      allow="autoplay; encrypted-media"
+      allowfullscreen
+    ></iframe>
+  </div>
+
+  <div class="section">
+    <h2>2. YouTube NoCookie Embed (autoplay muted)</h2>
+    <iframe
+      src="https://www.youtube-nocookie.com/embed/dQw4w9WgXcQ?autoplay=1&mute=1"
+      allow="autoplay; encrypted-media"
+      allowfullscreen
+    ></iframe>
+  </div>
+
+  <div class="section">
+    <h2>3. Piped.video Embed (alternative frontend)</h2>
+    <iframe
+      src="https://piped.video/embed/dQw4w9WgXcQ"
+      allowfullscreen
+    ></iframe>
+  </div>
+
+  <div class="section">
+    <h2>4. Autoplay after Button Click</h2>
+    <button onclick="playVideo()">Play Video</button><br />
+    <iframe
+      id="clickplay"
+      src="https://www.youtube-nocookie.com/embed/dQw4w9WgXcQ"
+      allow="autoplay; encrypted-media"
+      allowfullscreen
+    ></iframe>
+  </div>
+
+  <div class="section">
+    <h2>5. Fallback Link (for fullscreen or popup)</h2>
+    <a
+      href="https://www.youtube.com/watch?v=dQw4w9WgXcQ"
+      target="_blank"
+      style="color: lightblue;"
+    >Open YouTube in new tab</a>
+  </div>
+
+  <script>
+    function playVideo() {
+      const iframe = document.getElementById("clickplay");
+      iframe.src += "?autoplay=1&mute=1";
+    }
+  </script>
+</body>
+</html>
