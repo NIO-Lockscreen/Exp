@@ -9,6 +9,7 @@
     <link rel="apple-touch-icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Crect width='100' height='100' rx='20' fill='%232c2c2e'/%3E%3Ccircle cx='50' cy='50' r='30' fill='none' stroke='white' stroke-width='8'/%3E%3C/svg%3E">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <script src="https://cdn.jsdelivr.net/npm/qrcodejs@1.0.0/qrcode.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/music-metadata-browser/dist/music-metadata-browser.min.js"></script>
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Oswald:wght@700&family=Roboto+Mono:wght@500&family=Roboto:wght@400;500&family=Playfair+Display:wght@700&family=Source+Code+Pro:wght@700&family=Inter:wght@400;500&family=Lora:wght@400;500&display=swap');
         :root {
@@ -50,6 +51,18 @@
         #note-widget.edit-mode #note-settings-btn { display: flex; }
 
         #music-widget { top: 45%; left: 10%; width: 300px; display: flex; flex-direction: column; justify-content: center; }
+        /* MP3 Player Widget */
+        #mp3-player-widget { top: 55%; left: 60%; width: 320px; display: flex; flex-direction: column; }
+        #mp3-info-container { display: flex; gap: 12px; align-items: center; }
+        #mp3-album-art { width: 60px; height: 60px; background-size: cover; background-position: center; border-radius: 8px; flex-shrink: 0; display: flex; justify-content: center; align-items: center; font-size: 2rem; background-color: rgba(0,0,0,0.2); }
+        #mp3-details { text-align: left; overflow: hidden; }
+        #mp3-title { font-weight: 500; white-space: nowrap; text-overflow: ellipsis; overflow: hidden; }
+        #mp3-artist { font-size: 0.9em; color: #ccc; white-space: nowrap; text-overflow: ellipsis; overflow: hidden; }
+        #mp3-controls { display: flex; justify-content: space-around; align-items: center; margin-top: 10px; }
+        #mp3-controls i { font-size: 1.4rem; cursor: pointer; transition: transform 0.2s; }
+        #mp3-controls i:hover { transform: scale(1.08); }
+        #mp3-progress { width: 100%; margin-top: 8px; }
+        #lock-screen.light-theme #mp3-artist { color: #555; }
         /* Music Visualizer Widget */
         #music-visualizer-widget { top: 70%; left: 10%; width: 320px; height: 140px; padding: 0; overflow: hidden; position: absolute; resize: both; min-width: 180px; min-height: 90px; }
         #music-visualizer-canvas { width: 100%; height: 100%; display: block; }
@@ -111,12 +124,12 @@
         #lock-screen.light-theme #music-artist { color: #555; }
         #settings-btn { top: 80%; left: 50px; }
         #settings-btn svg circle:nth-child(2) { stroke: var(--icon-stroke-color); }
-        #settings-menu, #stock-editor-menu, #note-editor-menu, #radio-menu, #gif-chooser-menu { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background-color: rgba(0, 0, 0, 0.7); backdrop-filter: blur(15px); -webkit-backdrop-filter: blur(15px); display: none; justify-content: center; align-items: center; z-index: 1000; opacity: 0; transition: opacity 0.3s ease; }
-        #settings-menu.visible, #stock-editor-menu.visible, #note-editor-menu.visible, #radio-menu.visible, #gif-chooser-menu.visible { display: flex; opacity: 1; }
+        #settings-menu, #stock-editor-menu, #note-editor-menu, #radio-menu, #gif-chooser-menu, #mp3-menu { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background-color: rgba(0, 0, 0, 0.7); backdrop-filter: blur(15px); -webkit-backdrop-filter: blur(15px); display: none; justify-content: center; align-items: center; z-index: 1000; opacity: 0; transition: opacity 0.3s ease; }
+        #settings-menu.visible, #stock-editor-menu.visible, #note-editor-menu.visible, #radio-menu.visible, #gif-chooser-menu.visible, #mp3-menu.visible { display: flex; opacity: 1; }
         .menu-content { background-color: #2c2c2e; padding: 30px; border-radius: 20px; width: 90%; max-width: 500px; color: #f2f2f7; text-align: left; position: relative; box-shadow: 0 5px 25px rgba(0,0,0,0.5); transform: scale(0.95); transition: transform 0.3s ease; }
         #radio-menu .menu-content, #gif-chooser-menu .menu-content { max-height: 80vh; overflow-y: auto; }
         #stock-editor-menu .menu-content { text-align: center; }
-        #settings-menu.visible .menu-content, #stock-editor-menu.visible .menu-content, #note-editor-menu.visible .menu-content, #radio-menu.visible .menu-content, #gif-chooser-menu.visible .menu-content { transform: scale(1); }
+        #settings-menu.visible .menu-content, #stock-editor-menu.visible .menu-content, #note-editor-menu.visible .menu-content, #radio-menu.visible .menu-content, #gif-chooser-menu.visible .menu-content, #mp3-menu.visible .menu-content { transform: scale(1); }
         .menu-content h2 {text-align: center;}
         #close-settings-btn, #close-stock-editor-btn, #close-note-editor-btn, #close-radio-btn, #close-gif-chooser-btn { position: absolute; top: 10px; right: 15px; background: none; border: none; color: #aaa; font-size: 2rem; cursor: pointer; line-height: 1; z-index: 5; }
         #wallpaper-url-input, #stock-symbols-input, #weather-location-input, #font-select, #clock-color-input, #note-font-select, #note-font-size-input { width: 100%; padding: 12px; margin-bottom: 10px; border-radius: 10px; border: 1px solid #555; background-color: #3a3a3c; color: white; font-size: 1rem; outline: none; }
@@ -187,6 +200,7 @@
 </head>
 <body>
     <audio id="audio-player" preload="none"></audio>
+    <audio id="mp3-audio-player" preload="metadata"></audio>
     <div id="lock-screen">
         <div id="status-bar"><div id="weather-info"><span id="date"></span> <i id="weather-icon" class="fa-solid fa-cloud-sun"></i> <span id="temperature">...</span></div></div>
         <div id="fullscreen-hint">Double press wallpaper for fullscreen</div>
@@ -227,6 +241,21 @@
             <img id="gif-display" alt="Selected GIF">
             <div id="remove-gif-btn">×</div>
         </div>
+        <div id="mp3-player-widget" class="draggable-item widget hidden" title="Double-click to manage playlist">
+            <div id="mp3-info-container">
+                <div id="mp3-album-art"><i class="fa-solid fa-music"></i></div>
+                <div id="mp3-details">
+                    <div id="mp3-title">No Track</div>
+                    <div id="mp3-artist">Double click to add</div>
+                </div>
+            </div>
+            <input id="mp3-progress" type="range" min="0" max="100" value="0">
+            <div id="mp3-controls">
+                <i id="mp3-prev" class="fa-solid fa-backward-step"></i>
+                <i id="mp3-play-pause" class="fa-solid fa-play"></i>
+                <i id="mp3-next" class="fa-solid fa-forward-step"></i>
+            </div>
+        </div>
 
         <div id="webcam-widget" class="draggable-item widget" title="Long-press feed to mirror | Dbl-click feed for pan/zoom">
             <div class="webcam-video-wrapper">
@@ -262,6 +291,7 @@
                     <div class="setting-toggle"><label for="toggle-stock-widget">Stock Widget</label><input type="checkbox" id="toggle-stock-widget"></div>
                     <div class="setting-toggle"><label for="toggle-note-widget">Note Widget</label><input type="checkbox" id="toggle-note-widget"></div>
                     <div class="setting-toggle"><label for="toggle-music-widget">Music Widget</label><input type="checkbox" id="toggle-music-widget"></div>
+                    <div class="setting-toggle"><label for="toggle-mp3-player-widget">MP3 Player</label><input type="checkbox" id="toggle-mp3-player-widget"></div>
                      <div class="setting-toggle"><label for="toggle-music-visualizer-widget">Music Visualizer</label><input type="checkbox" id="toggle-music-visualizer-widget"></div>
                     <div class="setting-toggle"><label for="toggle-gif-widget">GIF Widget</label><input type="checkbox" id="toggle-gif-widget"></div>
                     <div class="setting-toggle"><label for="toggle-webcam-widget">Rear Seat Cam</label><input type="checkbox" id="toggle-webcam-widget"></div>
@@ -308,6 +338,11 @@
     <div id="stock-editor-menu"><div class="menu-content"><button id="close-stock-editor-btn">×</button><h2>Edit Stock Symbols</h2><p>Enter up to 7 stock symbols, separated by commas.</p><input type="text" id="stock-symbols-input" placeholder="TSLA, GOOGL, AKBA..."><div class="stock-flash-toggle"><label for="stock-flash-checkbox">Stock Flash 🎉</label><input type="checkbox" id="stock-flash-checkbox"></div><button id="save-stocks-btn">Save and Update</button></div></div>
     <div id="note-editor-menu"><div class="menu-content"><button id="close-note-editor-btn">×</button><h2>Edit Note Style</h2><div class="settings-section"><label for="note-font-select">Font Family</label><select id="note-font-select"><option value="'Roboto', sans-serif">Roboto (Default)</option><option value="'Lora', serif">Lora</option><option value="'Inter', sans-serif">Inter</option><option value="'Source Code Pro', monospace">Source Code Pro</option></select></div><div class="settings-section"><label for="note-font-size-input">Font Size (px)</label><input type="text" id="note-font-size-input" inputmode="numeric" pattern="[0-9]*" value="16"></div></div></div>
     <div id="radio-menu"><div class="menu-content"><button id="close-radio-btn">×</button><h2>Select a Radio Station</h2><div id="radio-channel-list"></div></div></div>
+    <div id="mp3-menu"><div class="menu-content"><button id="close-mp3-btn">×</button><h2>MP3 Playlist</h2><div style="display:flex; gap:8px; margin-bottom:10px; flex-wrap: wrap;">
+        <button id="mp3-add-qr-btn" style="background-color:#0a84ff;color:white;border:none;padding:8px 12px;border-radius:8px;cursor:pointer;">Add via Phone (Dropbox)</button>
+        <button id="mp3-clear-btn" style="background-color:#e74c3c;color:white;border:none;padding:8px 12px;border-radius:8px;cursor:pointer;">Clear All</button>
+    </div>
+    <div id="mp3-track-list" style="max-height:50vh; overflow:auto;"></div></div></div>
     <div id="gif-chooser-menu"><div class="menu-content"><button id="close-gif-chooser-btn">×</button><h2>Choose a GIF</h2><div id="gif-choices"></div><button id="add-new-gif-btn"><i class="fa-solid fa-plus"></i> Add New GIF</button></div></div>
     <div id="qr-modal"><div id="qr-modal-content"><h2>Scan with your phone</h2><div id="qr-code"></div><p>Scan to send an image URL from your phone.</p></div></div>
     <div id="upload-view"><div id="phone-upload-container"><h2>Add Wallpaper from Phone</h2><label for="file-input" id="upload-label">Tap to Upload Image</label><input type="file" id="file-input" accept="image/*" style="display: none;"><p class="separator-text">... or ...</p><p>Paste an image URL below</p><input type="url" id="phone-url-input" placeholder="https://example.com/image.jpg"><button id="phone-url-submit">Use this URL</button><h2 id="upload-status"></h2></div></div>
@@ -346,6 +381,20 @@
                 const urlSubmitBtn = document.getElementById('phone-url-submit');
                 const statusElem = document.getElementById('upload-status');
                 const uploadLabel = document.getElementById('upload-label');
+                const type = new URLSearchParams(window.location.search).get('type') || 'wallpaper';
+                // Adapt UI for MP3 link submission
+                if (type === 'mp3') {
+                    const container = document.getElementById('phone-upload-container');
+                    if (container) {
+                        container.innerHTML = `
+                            <h2>Add MP3 Links from Phone</h2>
+                            <p>Paste Dropbox links (one per line). Normal share links are ok; we'll convert them.</p>
+                            <textarea id="phone-mp3-textarea" placeholder="https://www.dropbox.com/s/abc/file1.mp3?dl=0\nhttps://www.dropbox.com/s/xyz/file2.mp3?dl=0" style="width:100%;height:200px;border-radius:10px;border:1px solid #555;background:#3a3a3c;color:#fff;padding:10px;"></textarea>
+                            <button id="phone-mp3-submit" style="background-color:#0a84ff;color:white;border:none;padding:12px 16px;border-radius:10px;cursor:pointer;margin-top:10px;">Send to PC</button>
+                            <h2 id="upload-status" style="margin-top:10px;"></h2>
+                        `;
+                    }
+                }
                 const sendUrlToLockscreen = (imageUrl) => {
                     statusElem.textContent = 'Sending to PC...';
                     fileInput.disabled = true; urlInput.disabled = true; urlSubmitBtn.disabled = true;
@@ -354,6 +403,23 @@
                     .then(r => { if (!r.ok) throw new Error('Failed to update PC.'); statusElem.textContent = 'Success! You can close this window.'; })
                     .catch(e => { statusElem.textContent = `Error: ${e.message}`; fileInput.disabled = false; urlInput.disabled = false; urlSubmitBtn.disabled = false; uploadLabel.style.backgroundColor = '#34c759'; });
                 };
+                // MP3 submission handler
+                if (type === 'mp3') {
+                    const mp3Textarea = document.getElementById('phone-mp3-textarea');
+                    const mp3Submit = document.getElementById('phone-mp3-submit');
+                    const status = document.getElementById('upload-status');
+                    if (mp3Submit && mp3Textarea) {
+                        mp3Submit.addEventListener('click', () => {
+                            const raw = (mp3Textarea.value || '').trim();
+                            if (!raw) { status.textContent = 'Please paste at least one link.'; return; }
+                            status.textContent = 'Sending to PC...';
+                            fetch(`https://api.npoint.io/${NPOINT_BIN_ID}`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ [session]: raw }) })
+                                .then(r => { if (!r.ok) throw new Error('Failed to update PC.'); status.textContent = 'Sent! You can close this window.'; })
+                                .catch(e => { status.textContent = `Error: ${e.message}`; });
+                        });
+                    }
+                    return;
+                }
                 fileInput.addEventListener('change', (e) => { const file = e.target.files[0]; if (!file) return; statusElem.textContent = 'Uploading to ImgBB...'; const formData = new FormData(); formData.append('key', IMGBB_API_KEY); formData.append('image', file); fetch('https://api.imgbb.com/1/upload', { method: 'POST', body: formData }).then(response => response.json()).then(data => { if (data.success) { sendUrlToLockscreen(data.data.url); } else { throw new Error(data.error.message || 'ImgBB upload failed.'); } }).catch(error => { statusElem.textContent = `Error: ${error.message}`; }); });
                 urlSubmitBtn.addEventListener('click', () => { const imageUrl = urlInput.value.trim(); if (!imageUrl || !imageUrl.startsWith('http')) { statusElem.textContent = 'Please enter a valid image URL.'; return; } sendUrlToLockscreen(imageUrl); });
             }
@@ -890,6 +956,21 @@
                              });
                              // Touch: single tap toggles mic immediately (for gesture compliance), double-tap toggles mode
                              this.elements.widget.addEventListener('touchstart', (e) => {
+                                 // Two-finger pinch start for resizing
+                                 if (e.touches.length === 2) {
+                                     e.preventDefault();
+                                     this._pinch = {
+                                         initialDist: Math.hypot(
+                                             e.touches[0].clientX - e.touches[1].clientX,
+                                             e.touches[0].clientY - e.touches[1].clientY
+                                         ),
+                                         startW: this.elements.widget.offsetWidth,
+                                         startH: this.elements.widget.offsetHeight,
+                                         startLeft: this.elements.widget.offsetLeft,
+                                         startTop: this.elements.widget.offsetTop
+                                     };
+                                     return;
+                                 }
                                  if (e.touches.length !== 1) return;
                                  // mark to suppress synthetic click
                                  this._suppressClickOnce = true;
@@ -905,8 +986,41 @@
                                           this.handleLongPress(this._lpStart.x, this._lpStart.y);
                                       }, 600);
                                   }
-                             }, { passive: true });
+                             }, { passive: false });
                               this.elements.widget.addEventListener('touchmove', (e) => {
+                                  // Pinch resize
+                                  if (this._pinch && e.touches && e.touches.length === 2) {
+                                      e.preventDefault();
+                                      const dist = Math.hypot(
+                                          e.touches[0].clientX - e.touches[1].clientX,
+                                          e.touches[0].clientY - e.touches[1].clientY
+                                      );
+                                      const ratio = dist / Math.max(1, this._pinch.initialDist);
+                                      const wEl = this.elements.widget;
+                                      const clamp = (v, min, max) => Math.max(min, Math.min(max, v));
+                                      if (this.mode === 'circle') {
+                                          const base = Math.min(this._pinch.startW, this._pinch.startH);
+                                          const newSize = clamp(Math.round(base * ratio), 80, 2000);
+                                          const dW = newSize - this._pinch.startW;
+                                          const dH = newSize - this._pinch.startH;
+                                          wEl.style.width = `${newSize}px`;
+                                          wEl.style.height = `${newSize}px`;
+                                          wEl.style.left = `${this._pinch.startLeft - dW / 2}px`;
+                                          wEl.style.top = `${this._pinch.startTop - dH / 2}px`;
+                                      } else {
+                                          const newW = clamp(Math.round(this._pinch.startW * ratio), 120, 3000);
+                                          const newH = clamp(Math.round(this._pinch.startH * ratio), 90, 2000);
+                                          const dW = newW - this._pinch.startW;
+                                          const dH = newH - this._pinch.startH;
+                                          wEl.style.width = `${newW}px`;
+                                          wEl.style.height = `${newH}px`;
+                                          wEl.style.left = `${this._pinch.startLeft - dW / 2}px`;
+                                          wEl.style.top = `${this._pinch.startTop - dH / 2}px`;
+                                      }
+                                      this.persistSize();
+                                      this.resizeCanvas();
+                                      return;
+                                  }
                                   if (!this._lpTimer) return;
                                   const t = e.touches && e.touches[0];
                                   if (!t) return;
@@ -917,8 +1031,9 @@
                                       clearTimeout(this._lpTimer);
                                       this._lpTimer = null;
                                   }
-                              }, { passive: true });
+                              }, { passive: false });
                              this.elements.widget.addEventListener('touchend', (e) => {
+                                  if (!e.touches || e.touches.length < 2) { this._pinch = null; }
                                   if (this._lpTimer) { clearTimeout(this._lpTimer); this._lpTimer = null; }
                                   if (this._lpTriggered) {
                                       // consume this gesture; do not treat as tap
@@ -1139,87 +1254,21 @@
                              }
                          },
                           drawBars(ctx, width, height) {
-                              // Background pulse to make whole widget react
-                              const pulseAlpha = 0.06 + 0.20 * this.level;
-                              ctx.fillStyle = `rgba(255,255,255,${pulseAlpha.toFixed(3)})`;
-                              ctx.fillRect(0, 0, width, height);
-
-                             const barCount = 60; // more bars for perceived sensitivity
-                              const slice = Math.max(1, Math.floor(this.dataArray.length / barCount));
-                              const barW = width / barCount;
-                             const globalGain = 0.25 + 1.1 * this.level;
-                              const time = performance.now() * 0.002;
-                              for (let i = 0; i < barCount; i++) {
-                                  const base = this.dataArray[i * slice] / 255;
-                                 const wave = 0.35 * (0.5 + 0.5 * Math.sin(time + i * 0.5));
-                                 const v = Math.min(1, base * 0.75 + wave * 0.9) * globalGain;
-                                  const barH = v * height;
-                                  ctx.fillStyle = 'rgba(255,255,255,1)';
-                                  ctx.fillRect(i * barW, height - barH, barW - 2, barH);
-                              }
-                              const glow = Math.min(1, this.level * 2);
-                              ctx.fillStyle = `rgba(255,255,255,${(0.08 + 0.22 * glow).toFixed(3)})`;
-                              ctx.fillRect(0, 0, width, 3);
-                              ctx.fillRect(0, height - 3, width, 3);
-                          },
-                          normalizeAngle(a) { let x = a % (Math.PI * 2); return x < 0 ? x + Math.PI * 2 : x; },
-                          isAngleInArc(a, start, end) {
-                              a = this.normalizeAngle(a); start = this.normalizeAngle(start); end = this.normalizeAngle(end);
-                              if (start === end) return false;
-                              if (end > start) return a >= start && a <= end;
-                              // wrap-around case
-                              return a >= start || a <= end;
-                          },
-                          isAngleMuted(a) {
-                              if (typeof this.muteArcStart !== 'number' || typeof this.muteArcEnd !== 'number') return false;
-                              return this.isAngleInArc(a, this.muteArcStart, this.muteArcEnd);
-                          },
-                          handleLongPress(clientX, clientY) {
-                              // Map position to angle around the canvas center for alignment
-                              const rect = this.elements.canvas.getBoundingClientRect();
-                              const cx = rect.left + rect.width / 2;
-                              const cy = rect.top + rect.height / 2;
-                              // Angle 0 at +X axis; our radial bars are drawn outward from +X rotated by angle
-                              const angle = this.normalizeAngle(Math.atan2(clientY - cy, clientX - cx));
-                              // Sequence: set start -> set end -> clear both
-                              if (typeof this.muteArcStart !== 'number') {
-                                  this.muteArcStart = angle;
-                                  this.persistMuteArc();
-                                  this.flashOverlay('Start set');
-                              } else if (typeof this.muteArcEnd !== 'number') {
-                                  this.muteArcEnd = angle;
-                                  // If end equals start, treat as cleared
-                                  if (Math.abs(this.muteArcEnd - this.muteArcStart) < 0.01) { this.muteArcStart = null; this.muteArcEnd = null; }
-                                  this.persistMuteArc();
-                                  this.flashOverlay('End set');
-                              } else {
-                                  this.muteArcStart = null; this.muteArcEnd = null; this.persistMuteArc();
-                                  this.flashOverlay('Mute arc cleared');
-                              }
-                          },
-                          persistMuteArc() {
-                              try {
-                                  if (typeof this.muteArcStart === 'number' && typeof this.muteArcEnd === 'number') {
-                                      localStorage.setItem('musicVisualizerMuteArc', JSON.stringify({ start: this.muteArcStart, end: this.muteArcEnd }));
-                                  } else if (typeof this.muteArcStart === 'number' && typeof this.muteArcEnd !== 'number') {
-                                      localStorage.setItem('musicVisualizerMuteArc', JSON.stringify({ start: this.muteArcStart, end: this.muteArcStart }));
-                                  } else {
-                                      localStorage.removeItem('musicVisualizerMuteArc');
-                                  }
-                              } catch {}
-                          },
-                          flashOverlay(text) {
-                              const o = this.elements.overlay; if (!o) return;
-                              const span = o.querySelector('span');
-                              const prev = span ? span.textContent : '';
-                              if (span) span.textContent = text;
-                              const prevDisplay = o.style.display;
-                              o.style.display = 'flex';
-                              setTimeout(() => {
-                                  if (span) span.textContent = prev || 'Tap to start';
-                                  o.style.display = this.stream ? 'none' : 'flex';
-                              }, 800);
-                          },
+                               // Transparent background for plain mode (no fill or glow)
+                               const barCount = 60; // more bars for perceived sensitivity
+                               const slice = Math.max(1, Math.floor(this.dataArray.length / barCount));
+                               const barW = width / barCount;
+                               const globalGain = 0.25 + 1.1 * this.level;
+                               const time = performance.now() * 0.002;
+                               for (let i = 0; i < barCount; i++) {
+                                   const base = this.dataArray[i * slice] / 255;
+                                   const wave = 0.35 * (0.5 + 0.5 * Math.sin(time + i * 0.5));
+                                   const v = Math.min(1, base * 0.75 + wave * 0.9) * globalGain;
+                                   const barH = v * height;
+                                   ctx.fillStyle = 'rgba(255,255,255,1)';
+                                   ctx.fillRect(i * barW, height - barH, barW - 2, barH);
+                               }
+                           },
                           drawCircle(ctx, width, height) {
                               const cx = width / 2, cy = height / 2;
                               const radius = Math.min(cx, cy) * 0.58;
@@ -1306,6 +1355,141 @@
                      };
                      window.musicVisualizer = mv;
                      mv.init();
+                    
+                    // MP3 Player (Dropbox + ID3 Art)
+                    const mp3Player = {
+                        audio: document.getElementById('mp3-audio-player'),
+                        elements: {
+                            widget: document.getElementById('mp3-player-widget'),
+                            art: document.getElementById('mp3-album-art'),
+                            title: document.getElementById('mp3-title'),
+                            artist: document.getElementById('mp3-artist'),
+                            playPause: document.getElementById('mp3-play-pause'),
+                            next: document.getElementById('mp3-next'),
+                            prev: document.getElementById('mp3-prev'),
+                            progress: document.getElementById('mp3-progress'),
+                            menu: document.getElementById('mp3-menu'),
+                            closeBtn: document.getElementById('close-mp3-btn'),
+                            addQrBtn: document.getElementById('mp3-add-qr-btn'),
+                            clearBtn: document.getElementById('mp3-clear-btn'),
+                            list: document.getElementById('mp3-track-list')
+                        },
+                        playlist: JSON.parse(localStorage.getItem('lockscreenMp3Playlist') || '[]'),
+                        index: parseInt(localStorage.getItem('lockscreenMp3Index') || '-1', 10),
+                        init() {
+                            const w = this.elements.widget;
+                            if (!w) return;
+                            w.addEventListener('dblclick', () => this.openMenu());
+                            this.elements.playPause.addEventListener('click', () => this.togglePlay());
+                            this.elements.next.addEventListener('click', () => this.next());
+                            this.elements.prev.addEventListener('click', () => this.prev());
+                            this.audio.addEventListener('play', () => this.updatePlayIcon(true));
+                            this.audio.addEventListener('pause', () => this.updatePlayIcon(false));
+                            this.audio.addEventListener('timeupdate', () => this.updateProgress());
+                            this.audio.addEventListener('ended', () => this.next());
+                            this.elements.progress.addEventListener('input', () => this.seek());
+                            this.elements.closeBtn.addEventListener('click', () => this.elements.menu.classList.remove('visible'));
+                            this.elements.addQrBtn.addEventListener('click', () => {
+                                this.elements.menu.classList.remove('visible');
+                                window.startPolling(`mp3_session_${Date.now()}`, 'mp3');
+                            });
+                            this.elements.clearBtn.addEventListener('click', () => this.clear());
+                            this.renderList();
+                            if (this.playlist.length > 0) {
+                                if (this.index < 0 || this.index >= this.playlist.length) this.index = 0;
+                                this.load(this.index, false);
+                            }
+                        },
+                        openMenu() { this.renderList(); this.elements.menu.classList.add('visible'); },
+                        renderList() {
+                            const list = this.elements.list; list.innerHTML = '';
+                            if (this.playlist.length === 0) { list.innerHTML = '<p style="text-align:center;color:#aaa;">No tracks yet. Use "Add via Phone".</p>'; return; }
+                            this.playlist.forEach((url, i) => {
+                                const row = document.createElement('div');
+                                row.className = 'radio-channel-item';
+                                const name = decodeURIComponent((url.split('/').pop() || '').split('?')[0]) || `Track ${i+1}`;
+                                row.innerHTML = `<div class="name">${name}</div><div class="genre" style="display:flex;gap:8px;align-items:center;">
+                                    <button data-i="${i}" class="mp3-play-btn" style="background:none;border:1px solid #555;color:#fff;padding:4px 8px;border-radius:6px;cursor:pointer;">Play</button>
+                                    <button data-i="${i}" class="mp3-del-btn" style="background:#e74c3c;border:none;color:#fff;padding:4px 8px;border-radius:6px;cursor:pointer;">Delete</button>
+                                </div>`;
+                                list.appendChild(row);
+                            });
+                            list.querySelectorAll('.mp3-play-btn').forEach(btn => btn.addEventListener('click', (e) => {
+                                const i = parseInt(e.currentTarget.getAttribute('data-i'), 10);
+                                this.load(i, true);
+                                this.elements.menu.classList.remove('visible');
+                            }));
+                            list.querySelectorAll('.mp3-del-btn').forEach(btn => btn.addEventListener('click', (e) => {
+                                const i = parseInt(e.currentTarget.getAttribute('data-i'), 10);
+                                this.playlist.splice(i, 1);
+                                if (this.index >= this.playlist.length) this.index = this.playlist.length - 1;
+                                this.persist();
+                                this.renderList();
+                            }));
+                        },
+                        persist() { localStorage.setItem('lockscreenMp3Playlist', JSON.stringify(this.playlist)); localStorage.setItem('lockscreenMp3Index', String(this.index)); },
+                        normalizeDropboxUrl(u) {
+                            try {
+                                const url = new URL(u);
+                                if (url.hostname.endsWith('dropbox.com')) {
+                                    url.searchParams.set('raw', '1');
+                                    url.searchParams.delete('dl');
+                                    return `https://dl.dropboxusercontent.com${url.pathname}` + (url.search ? url.search : '?raw=1');
+                                }
+                            } catch {}
+                            return u;
+                        },
+                        addTracks(urls) {
+                            const normed = urls.map(u => this.normalizeDropboxUrl(u)).filter(Boolean);
+                            let added = 0; normed.forEach(u => { if (!this.playlist.includes(u)) { this.playlist.push(u); added++; } });
+                            this.persist(); this.renderList(); if (added > 0 && this.index === -1) { this.load(0, false); }
+                        },
+                        async load(i, autoplay = true) {
+                            if (i < 0 || i >= this.playlist.length) return; this.index = i; this.persist();
+                            const url = this.playlist[i]; this.audio.src = url; this.updateNowPlaying({ title: 'Loading...', artist: '', art: null });
+                            try { await this.loadTags(url); } catch {}
+                            if (autoplay) this.audio.play().catch(()=>{});
+                        },
+                        next() { if (this.playlist.length === 0) return; this.load((this.index + 1) % this.playlist.length, true); },
+                        prev() { if (this.playlist.length === 0) return; this.load((this.index - 1 + this.playlist.length) % this.playlist.length, true); },
+                        togglePlay() { if (!this.audio.src) return; this.audio.paused ? this.audio.play() : this.audio.pause(); },
+                        updatePlayIcon(isPlaying) { this.elements.playPause.className = `fa-solid ${isPlaying ? 'fa-pause' : 'fa-play'}`; },
+                        updateProgress() { if (!isFinite(this.audio.duration) || this.audio.duration <= 0) { this.elements.progress.value = 0; return; } this.elements.progress.value = Math.floor((this.audio.currentTime / this.audio.duration) * 100) || 0; },
+                        seek() { if (!isFinite(this.audio.duration) || this.audio.duration <= 0) return; const pct = parseInt(this.elements.progress.value, 10) / 100; this.audio.currentTime = pct * this.audio.duration; },
+                        clear() { this.playlist = []; this.index = -1; this.audio.pause(); this.audio.src = ''; this.updateNowPlaying({ title: 'No Track', artist: 'Double click to add', art: null }); this.persist(); this.renderList(); },
+                        updateNowPlaying({ title, artist, art }) {
+                            this.elements.title.textContent = title || 'Unknown Title';
+                            this.elements.artist.textContent = artist || '';
+                            if (art) { this.elements.art.style.backgroundImage = `url('${art}')`; this.elements.art.innerHTML = ''; }
+                            else { this.elements.art.style.backgroundImage = 'none'; this.elements.art.innerHTML = '<i class="fa-solid fa-music"></i>'; }
+                            if ('mediaSession' in navigator) {
+                                navigator.mediaSession.metadata = new MediaMetadata({ title: this.elements.title.textContent, artist: this.elements.artist.textContent, artwork: art ? [{ src: art, sizes: '512x512', type: 'image/jpeg' }] : [] });
+                                navigator.mediaSession.setActionHandler('play', () => this.togglePlay());
+                                navigator.mediaSession.setActionHandler('pause', () => this.togglePlay());
+                                navigator.mediaSession.setActionHandler('nexttrack', () => this.next());
+                                navigator.mediaSession.setActionHandler('previoustrack', () => this.prev());
+                            }
+                        },
+                        async loadTags(url) {
+                            if (!window.musicMetadata) { this.updateNowPlaying({ title: this.fileNameFromUrl(url), artist: '', art: null }); return; }
+                            try {
+                                const metadata = await window.musicMetadata.fetchFromUrl(url, { duration: false });
+                                const common = metadata.common || {};
+                                let artUrl = null;
+                                if (common.picture && common.picture.length > 0) {
+                                    const pic = common.picture[0];
+                                    const blob = new Blob([pic.data], { type: pic.format || 'image/jpeg' });
+                                    artUrl = URL.createObjectURL(blob);
+                                }
+                                this.updateNowPlaying({ title: common.title || this.fileNameFromUrl(url), artist: (common.artist || common.album || ''), art: artUrl });
+                            } catch {
+                                this.updateNowPlaying({ title: this.fileNameFromUrl(url), artist: '', art: null });
+                            }
+                        },
+                        fileNameFromUrl(url) { try { return decodeURIComponent((new URL(url)).pathname.split('/').pop()).replace(/\.[^/.]+$/, ''); } catch { return 'Track'; } }
+                    };
+                    window.mp3Player = mp3Player;
+                    mp3Player.init();
                     
                     // =================================================================
                     // CORRECTED WEBCAM WIDGET LOGIC
@@ -1905,12 +2089,13 @@
                 
                 (function setupBaseFeatures() {
                     const webcamToggleBtn = document.getElementById('webcam-toggle-btn');
-                    const DRAGGABLE_ELEMENT_IDS = ['clock', 'youtube-music-btn', 'youtube-btn', 'stock-widget', 'settings-btn', 'fun-stock-name-display', 'note-widget', 'music-widget', 'music-visualizer-widget', 'gif-widget', 'webcam-widget', 'webcam-toggle-btn'];
+                    const DRAGGABLE_ELEMENT_IDS = ['clock', 'youtube-music-btn', 'youtube-btn', 'stock-widget', 'settings-btn', 'fun-stock-name-display', 'note-widget', 'music-widget', 'mp3-player-widget', 'music-visualizer-widget', 'gif-widget', 'webcam-widget', 'webcam-toggle-btn'];
                     const WIDGETS = {
                         stock: { el: document.getElementById('stock-widget'), toggle: document.getElementById('toggle-stock-widget'), default: true },
                         note: { el: document.getElementById('note-widget'), toggle: document.getElementById('toggle-note-widget'), default: false },
                         music: { el: document.getElementById('music-widget'), toggle: document.getElementById('toggle-music-widget'), default: false },
                         musicVisualizer: { el: document.getElementById('music-visualizer-widget'), toggle: document.getElementById('toggle-music-visualizer-widget'), default: false },
+                        mp3: { el: document.getElementById('mp3-player-widget'), toggle: document.getElementById('toggle-mp3-player-widget'), default: false },
                         gif: { el: document.getElementById('gif-widget'), toggle: document.getElementById('toggle-gif-widget'), default: false },
                         webcam: { el: document.getElementById('webcam-widget'), toggle: document.getElementById('toggle-webcam-widget'), default: false },
                     };
@@ -1987,7 +2172,7 @@
                             if (e) {
                                 p[id] = { t: `${(e.offsetTop / lockScreen.clientHeight) * 100}%`, l: `${(e.offsetLeft / lockScreen.clientWidth) * 100}%` };
                                 if (id === 'clock') p[id].s = clockScale;
-                                    if (id === 'note-widget' || id === 'gif-widget' || id === 'webcam-widget' || id === 'music-visualizer-widget') {
+                                    if (id === 'note-widget' || id === 'gif-widget' || id === 'webcam-widget' || id === 'music-visualizer-widget' || id === 'mp3-player-widget') {
                                         // Allow sizes to exceed viewport, so read actual pixels if style is empty
                                         const w = e.style.width || (e.offsetWidth + 'px');
                                         const h = e.style.height || (e.offsetHeight + 'px');
@@ -2007,7 +2192,7 @@
                                     e.style.top = pos.t; e.style.left = pos.l;
                                     e.style.transform = (id === 'clock' || id === 'stock-widget') ? 'none' : e.style.transform;
                                     if (id === 'clock' && pos.s) applyClockScale(pos.s);
-                                    if (id === 'note-widget' || id === 'gif-widget' || id === 'webcam-widget' || id === 'music-visualizer-widget') { e.style.width = pos.w || e.style.width; e.style.height = pos.h || e.style.height; }
+                                    if (id === 'note-widget' || id === 'gif-widget' || id === 'webcam-widget' || id === 'music-visualizer-widget' || id === 'mp3-player-widget') { e.style.width = pos.w || e.style.width; e.style.height = pos.h || e.style.height; }
                                 }
                             });
                         }
@@ -2407,7 +2592,7 @@
                     window.radioPlayer.reset();
                     window.webcamPlayer.stop();
                     document.getElementById('gif-display').src = '';
-                    ['clock', 'youtube-music-btn', 'youtube-btn', 'stock-widget', 'settings-btn', 'fun-stock-name-display', 'note-widget', 'music-widget', 'music-visualizer-widget', 'gif-widget', 'webcam-widget', 'webcam-toggle-btn'].forEach(id => {
+                    ['clock', 'youtube-music-btn', 'youtube-btn', 'stock-widget', 'settings-btn', 'fun-stock-name-display', 'note-widget', 'music-widget', 'mp3-player-widget', 'music-visualizer-widget', 'gif-widget', 'webcam-widget', 'webcam-toggle-btn'].forEach(id => {
                         const el = document.getElementById(id);
                         if (el) el.style.cssText = '';
                     });
@@ -2418,7 +2603,7 @@
 
                 window.startPolling = (session, type = 'wallpaper') => {
                     if (pollingInterval) clearInterval(pollingInterval);
-                    const uploadUrl = `${window.location.href.split('?')[0]}?upload=true&session=${session}`;
+                    const uploadUrl = `${window.location.href.split('?')[0]}?upload=true&session=${session}&type=${encodeURIComponent(type)}`;
                     const qrCodeContainer = document.getElementById('qr-code');
                     qrCodeContainer.innerHTML = '';
                     qrModal.style.display = 'flex';
@@ -2436,6 +2621,11 @@
 
                                     if (type === 'gif') {
                                         window.addGif(newUrl);
+                                    } else if (type === 'mp3') {
+                                        // Expect newline-separated URLs
+                                        const raw = newUrl.trim();
+                                        const urls = raw.split(/\r?\n/).map(s => s.trim()).filter(Boolean);
+                                        window.mp3Player && window.mp3Player.addTracks(urls);
                                     } else {
                                         const newWp = { url: newUrl, position: 'center center' };
                                         const wps = getWps();
