@@ -2060,6 +2060,8 @@
         addTracks(urls) {
           const cleaned = urls.map(u => this.normalizeDropbox(u)).filter(Boolean);
           cleaned.forEach(u => { if (!this.playlist.includes(u)) this.playlist.push(u); });
+          this.persist && this.persist();
+          this.renderList && this.renderList();
           if (this.index === -1 && this.playlist.length > 0) this.load(0, false);
         },
         
