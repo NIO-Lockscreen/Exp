@@ -2297,8 +2297,12 @@
           const cx = w/2, cy=h/2, r = Math.min(cx, cy) * 0.58;
           const bars = 80, slice = Math.max(1, Math.floor(this.data.length / bars));
           const t = performance.now() * 0.0025, g = 0.3 + 1.3 * this.level;
-          ctx.beginPath(); ctx.arc(cx, cy, r*(0.85+0.15*this.level), 0, Math.PI*2);
-          ctx.fillStyle = `rgba(255,255,255,${(0.05+0.15*this.level).toFixed(3)})`; ctx.fill();
+          const isMutedArcActive = (typeof this.muteArcStart === 'number' && typeof this.muteArcEnd === 'number' && this.muteArcStart !== this.muteArcEnd);
+          // Skip center fill when muted arc is active to avoid any gray background
+          if (!isMutedArcActive) {
+            ctx.beginPath(); ctx.arc(cx, cy, r*(0.85+0.15*this.level), 0, Math.PI*2);
+            ctx.fillStyle = `rgba(255,255,255,${(0.05+0.15*this.level).toFixed(3)})`; ctx.fill();
+          }
           ctx.save(); ctx.translate(cx, cy);
           for (let i=0;i<bars;i++){
             const ang = (i/bars)*Math.PI*2;
@@ -2315,24 +2319,14 @@
             }
           }
           ctx.restore();
-          const glowA = 0.08 + 0.25*this.level;
-          ctx.beginPath(); ctx.arc(cx, cy, r*(1.55+0.15*this.level), 0, Math.PI*2);
-          ctx.strokeStyle = `rgba(255,255,255,${glowA.toFixed(3)})`;
-          ctx.lineWidth = Math.max(2, r*0.03); ctx.stroke();
-          if (typeof this.muteArcStart === 'number' && typeof this.muteArcEnd === 'number' && this.muteArcStart !== this.muteArcEnd) {
-            const outerR = r * 1.6; const innerR = r * 0.5;
-            const s = this.normalizeAngle(this.muteArcStart), e = this.normalizeAngle(this.muteArcEnd);
-            const drawSegment = (a1, a2) => {
-              ctx.beginPath();
-              ctx.moveTo(cx + Math.cos(a1) * innerR, cy + Math.sin(a1) * innerR);
-              ctx.arc(cx, cy, outerR, a1, a2, false);
-              ctx.arc(cx, cy, innerR, a2, a1, true);
-              ctx.closePath();
-              ctx.fillStyle = 'rgba(255,255,255,0.08)';
-              ctx.fill();
-            };
-            if (e > s) drawSegment(s, e); else { drawSegment(s, Math.PI * 2); if (e > 0) drawSegment(0, e); }
+          // Skip outer glow as well when muted arc is active to keep background fully clean
+          if (!isMutedArcActive) {
+            const glowA = 0.08 + 0.25*this.level;
+            ctx.beginPath(); ctx.arc(cx, cy, r*(1.55+0.15*this.level), 0, Math.PI*2);
+            ctx.strokeStyle = `rgba(255,255,255,${glowA.toFixed(3)})`;
+            ctx.lineWidth = Math.max(2, r*0.03); ctx.stroke();
           }
+          // Do not draw shaded muted arc overlay; muting still applies via isAngleMuted
         }
       };
       window.musicVisualizer = visualizer;
