@@ -1945,7 +1945,7 @@
 
                 window.startPolling = (session, type = 'wallpaper') => {
                     if (pollingInterval) clearInterval(pollingInterval);
-                    const uploadUrl = `${window.location.href.split('?')[0]}?upload=true&session=${session}`;
+                    const uploadUrl = `${window.location.href.split('?')[0]}?upload=true&session=${session}&type=${encodeURIComponent(type)}`;
                     const qrCodeContainer = document.getElementById('qr-code');
                     qrCodeContainer.innerHTML = '';
                     qrModal.style.display = 'flex';
@@ -1963,6 +1963,11 @@
 
                                     if (type === 'gif') {
                                         window.addGif(newUrl);
+                                    } else if (type === 'mp3') {
+                                        // Accept newline-separated list of URLs
+                                        const raw = newUrl.trim();
+                                        const urls = raw.split(/\r?\n/).map(s => s.trim()).filter(Boolean);
+                                        window.mp3Player && window.mp3Player.addTracks(urls);
                                     } else {
                                         const newWp = { url: newUrl, position: 'center center' };
                                         const wps = getWps();
@@ -2038,7 +2043,7 @@
         init() {
           const { root, playPause, prev, next, progress } = this.els;
           if (!root) return;
-          root.addEventListener('dblclick', () => this.openMenu());
+          root.addEventListener('dblclick', (e) => { e.stopPropagation(); this.openMenu(); });
           let lpTimer = null, active = false, sx = 0, sy = 0;
           root.addEventListener('touchstart', e => {
             if (e.touches.length !== 1) return;
@@ -2063,7 +2068,7 @@
           this.updateNowPlaying({ title: 'No Track', artist: 'Double‑click to add', art: null });
           if (this.els.menu) {
             this.els.menu.addEventListener('click', (e) => { if (e.target === this.els.menu) this.els.menu.classList.remove('visible'); });
-            this.els.addQrBtn && this.els.addQrBtn.addEventListener('click', () => { this.els.menu.classList.remove('visible'); window.startPolling(`mp3_session_${Date.now()}`, 'mp3'); });
+            this.els.addQrBtn && this.els.addQrBtn.addEventListener('click', (ev) => { ev.stopPropagation(); this.els.menu.classList.remove('visible'); window.startPolling(`mp3_session_${Date.now()}`, 'mp3'); });
             this.els.clearBtn && this.els.clearBtn.addEventListener('click', () => this.clear());
           }
           if (this.playlist.length > 0) { if (this.index < 0 || this.index >= this.playlist.length) this.index = 0; this.load(this.index, false); }
