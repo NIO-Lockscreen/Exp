@@ -194,7 +194,7 @@
 
         /* Visualizer */
         #music-visualizer-widget {
-          width: 320px; height: 140px; position: relative; overflow:hidden; border-radius:12px;
+          top: 70%; left: 10%; width: 320px; height: 140px; position: absolute; overflow:hidden; border-radius:12px;
           background: rgba(0,0,0,0.2); backdrop-filter: blur(5px);
         }
         #music-visualizer-canvas { width:100%; height:100%; display:block; }
@@ -202,8 +202,10 @@
           position:absolute; inset:0; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:6px;
           color:#fff; background: rgba(0,0,0,0.35);
         }
-        #music-visualizer-widget.circle { border-radius:50%; }
-        #music-visualizer-widget.circle #music-visualizer-canvas { border-radius:50%; }
+        /* Match index.html circle mode visuals */
+        #music-visualizer-widget.circle-mode { background-color: transparent !important; backdrop-filter: none !important; -webkit-backdrop-filter: none !important; border-radius: 50%; }
+        #music-visualizer-widget.circle-mode #music-visualizer-canvas { border-radius: 50%; }
+        #music-visualizer-widget.circle-mode #music-visualizer-overlay { background-color: transparent; }
     </style>
 </head>
 <body>
@@ -232,6 +234,7 @@
             <i class="fa-solid fa-microphone"></i>
             <span>Tap to start</span>
           </div>
+          <div id="music-visualizer-resize-box" style="display:none;"><i class="fa-solid fa-up-right-and-down-left-from-center"></i></div>
         </div>
 
         <!-- MP3 Player -->
@@ -305,6 +308,8 @@
                     <div class="setting-toggle"><label for="toggle-stock-widget">Stock Widget</label><input type="checkbox" id="toggle-stock-widget"></div>
                     <div class="setting-toggle"><label for="toggle-note-widget">Note Widget</label><input type="checkbox" id="toggle-note-widget"></div>
                     <div class="setting-toggle"><label for="toggle-music-widget">Music Widget</label><input type="checkbox" id="toggle-music-widget"></div>
+                    <div class="setting-toggle"><label for="toggle-mp3-player-widget">MP3 Player</label><input type="checkbox" id="toggle-mp3-player-widget"></div>
+                    <div class="setting-toggle"><label for="toggle-music-visualizer-widget">Music Visualizer</label><input type="checkbox" id="toggle-music-visualizer-widget"></div>
                     <div class="setting-toggle"><label for="toggle-gif-widget">GIF Widget</label><input type="checkbox" id="toggle-gif-widget"></div>
                     <div class="setting-toggle"><label for="toggle-webcam-widget">Rear Seat Cam</label><input type="checkbox" id="toggle-webcam-widget"></div>
                 </div>
@@ -1411,11 +1416,13 @@
                 
                 (function setupBaseFeatures() {
                     const webcamToggleBtn = document.getElementById('webcam-toggle-btn');
-                    const DRAGGABLE_ELEMENT_IDS = ['clock', 'youtube-music-btn', 'youtube-btn', 'stock-widget', 'settings-btn', 'fun-stock-name-display', 'note-widget', 'music-widget', 'gif-widget', 'webcam-widget', 'webcam-toggle-btn'];
+                    const DRAGGABLE_ELEMENT_IDS = ['clock', 'youtube-music-btn', 'youtube-btn', 'stock-widget', 'settings-btn', 'fun-stock-name-display', 'note-widget', 'music-widget', 'music-visualizer-widget', 'mp3-player-widget', 'gif-widget', 'webcam-widget', 'webcam-toggle-btn'];
                     const WIDGETS = {
                         stock: { el: document.getElementById('stock-widget'), toggle: document.getElementById('toggle-stock-widget'), default: true },
                         note: { el: document.getElementById('note-widget'), toggle: document.getElementById('toggle-note-widget'), default: false },
                         music: { el: document.getElementById('music-widget'), toggle: document.getElementById('toggle-music-widget'), default: false },
+                        mp3: { el: document.getElementById('mp3-player-widget'), toggle: document.getElementById('toggle-mp3-player-widget'), default: false },
+                        visualizer: { el: document.getElementById('music-visualizer-widget'), toggle: document.getElementById('toggle-music-visualizer-widget'), default: true },
                         gif: { el: document.getElementById('gif-widget'), toggle: document.getElementById('toggle-gif-widget'), default: false },
                         webcam: { el: document.getElementById('webcam-widget'), toggle: document.getElementById('toggle-webcam-widget'), default: false },
                     };
@@ -1423,11 +1430,11 @@
                     function initializeWidgetToggles() {
                         for(const key in WIDGETS) {
                             const widget = WIDGETS[key];
-                            const savedState = localStorage.getItem(`widget_${key}_visible`);
+                            const savedState = widget.toggle ? localStorage.getItem(`widget_${key}_visible`) : null;
                             const isVisible = savedState === null ? widget.default : savedState === 'true';
                             
                             widget.el.classList.toggle('hidden', !isVisible);
-                            widget.toggle.checked = isVisible;
+                            if (widget.toggle) widget.toggle.checked = isVisible;
 
                             if (key === 'webcam') {
                                 webcamToggleBtn.classList.toggle('hidden', !isVisible);
@@ -1436,7 +1443,7 @@
                                 }
                             }
 
-                            widget.toggle.addEventListener('change', () => {
+                            if (widget.toggle) widget.toggle.addEventListener('change', () => {
                                 const isChecked = widget.toggle.checked;
                                 widget.el.classList.toggle('hidden', !isChecked);
                                 localStorage.setItem(`widget_${key}_visible`, isChecked);
@@ -2102,9 +2109,11 @@
           overlay: document.getElementById('music-visualizer-overlay')
         },
         audioCtx: null, analyser: null, data: null, time: null, raf: null,
-        level: 0, mode: 'bars', pinch: null,
+        level: 0, mode: (localStorage.getItem('musicVisualizerMode') || 'circle'), pinch: null,
         init() {
           const w = this.els.root; if (!w) return;
+          // Apply saved mode class immediately
+          if (this.mode === 'circle') { w.classList.add('circle-mode'); }
           w.addEventListener('click', () => { if (!this.audioCtx) this.start(); });
           w.addEventListener('dblclick', (e) => { e.preventDefault(); this.toggleMode(); });
           const getDist = (t) => Math.hypot(t[0].clientX - t[1].clientX, t[0].clientY - t[1].clientY);
@@ -2140,7 +2149,24 @@
         },
         toggleMode() {
           this.mode = this.mode === 'circle' ? 'bars' : 'circle';
-          if (this.els.root) this.els.root.classList.toggle('circle', this.mode === 'circle');
+          localStorage.setItem('musicVisualizerMode', this.mode);
+          if (this.els.root) {
+            this.els.root.classList.toggle('circle-mode', this.mode === 'circle');
+          }
+          // When entering circle, enforce square while keeping center
+          if (this.mode === 'circle') {
+            const w = this.els.root.offsetWidth || 200;
+            const h = this.els.root.offsetHeight || 200;
+            const oldLeft = this.els.root.offsetLeft;
+            const oldTop = this.els.root.offsetTop;
+            const size = Math.min(w, h);
+            const dW = size - w;
+            const dH = size - h;
+            this.els.root.style.width = `${size}px`;
+            this.els.root.style.height = `${size}px`;
+            this.els.root.style.left = `${oldLeft - dW / 2}px`;
+            this.els.root.style.top = `${oldTop - dH / 2}px`;
+          }
           this.resizeCanvas();
         },
         resizeCanvas() {
