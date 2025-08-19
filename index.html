@@ -362,6 +362,20 @@
             <button id="mp3-add-qr-btn" class="mp3-mode-btn" style="background:#0a84ff; color:#fff; border:none; padding:8px 12px; border-radius:8px; cursor:pointer;">Add via Phone (Dropbox)</button>
             <button id="mp3-clear-btn" class="mp3-mode-btn" style="background:#e74c3c; color:#fff; border:none; padding:8px 12px; border-radius:8px; cursor:pointer;">Clear All</button>
         </div>
+        <div class="dbx-folder-import" style="display:flex; flex-direction:column; gap:8px; margin:6px 0 12px;">
+            <label style="font-size:.9rem; color:#ccc;">Dropbox API Token (stored locally):</label>
+            <input id="dbx-token-input" type="password" placeholder="Paste Dropbox Access Token" style="background:#3a3a3c;color:#fff;border:1px solid #555;border-radius:8px;padding:8px;">
+            <div style="display:flex; gap:8px; align-items:center;">
+                <button id="dbx-save-token-btn" style="background:#555;border:none;color:#fff;padding:6px 10px;border-radius:8px;cursor:pointer;">Save Token</button>
+                <span id="dbx-token-status" style="font-size:.85rem;color:#aaa;"></span>
+            </div>
+            <label style="font-size:.9rem; color:#ccc;">Dropbox Folder Shared Link:</label>
+            <input id="dbx-folder-url-input" type="url" placeholder="https://www.dropbox.com/scl/fo/..." style="background:#3a3a3c;color:#fff;border:1px solid #555;border-radius:8px;padding:8px;">
+            <div style="display:flex; gap:8px; flex-wrap:wrap;">
+                <button id="dbx-import-folder-notoken-btn" style="background:#0a84ff;border:none;color:#fff;padding:8px 12px;border-radius:8px;cursor:pointer;">Import Folder (No Token)</button>
+                <button id="dbx-import-folder-btn" style="background:#555;border:none;color:#fff;padding:8px 12px;border-radius:8px;cursor:pointer;">Import Folder (Token)</button>
+            </div>
+        </div>
         <div id="mp3-track-list" class="track-list" style="max-height:55vh; overflow:auto;"></div>
     </div></div>
     <div id="qr-modal"><div id="qr-modal-content"><h2>Scan with your phone</h2><div id="qr-code"></div><p>Scan to send an image URL from your phone.</p></div></div>
@@ -2037,6 +2051,39 @@
           clearBtn: document.getElementById('mp3-clear-btn'),
           list: document.getElementById('mp3-track-list'),
         },
+        // Scrape a public Dropbox shared folder (HTML) for direct .mp3 links (no token)
+        async scrapeDropboxSharedFolderLinks(sharedUrl) {
+          // Normalize to ?dl=0 for an HTML listing
+          let url = new URL(sharedUrl);
+          if (url.hostname.endsWith('dropbox.com')) {
+            url.searchParams.set('dl', '0');
+          }
+          const res = await fetch(url.toString(), { credentials: 'omit', mode: 'cors' });
+          if (!res.ok) throw new Error('fetch shared');
+          const html = await res.text();
+          // Find JSON blob in HTML that includes file entries (look for "preload" state or shared link data)
+          // Fallback: pick anchor tags
+          const urls = new Set();
+          // 1) Try detect direct mp3 anchors
+          const anchorRegex = /href\=\"([^\"]+\.mp3[^\"]*)\"/ig;
+          let m;
+          while ((m = anchorRegex.exec(html)) !== null) {
+            try { urls.add(this.normalizeDropbox(m[1])); } catch {}
+          }
+          // 2) Also parse potential API JSON snippets inside page for path/display names
+          const jsonRegex = /\{\"entries\":\[(.*?)\]\}/s;
+          const jm = jsonRegex.exec(html);
+          if (jm) {
+            const raw = jm[0];
+            try {
+              const blob = JSON.parse(raw);
+              (blob.entries||[]).forEach(e => {
+                if (e && e.name && /\.mp3$/i.test(e.name) && e.link) { urls.add(this.normalizeDropbox(e.link)); }
+              });
+            } catch {}
+          }
+          return Array.from(urls);
+        },
         playlist: JSON.parse(localStorage.getItem('lockscreenMp3Playlist') || '[]'),
         index: parseInt(localStorage.getItem('lockscreenMp3Index') || '-1', 10),
         mode: 'mp3',
@@ -2070,8 +2117,85 @@
             this.els.menu.addEventListener('click', (e) => { if (e.target === this.els.menu) this.els.menu.classList.remove('visible'); });
             this.els.addQrBtn && this.els.addQrBtn.addEventListener('click', (ev) => { ev.stopPropagation(); this.els.menu.classList.remove('visible'); window.startPolling(`mp3_session_${Date.now()}`, 'mp3'); });
             this.els.clearBtn && this.els.clearBtn.addEventListener('click', () => this.clear());
+            // Dropbox folder import UI wiring
+            const tokenInput = document.getElementById('dbx-token-input');
+            const tokenSaveBtn = document.getElementById('dbx-save-token-btn');
+            const tokenStatus = document.getElementById('dbx-token-status');
+            const folderUrlInput = document.getElementById('dbx-folder-url-input');
+            const importBtn = document.getElementById('dbx-import-folder-btn');
+            try {
+              const saved = localStorage.getItem('dbxAccessToken');
+              if (saved && tokenInput) tokenInput.value = saved;
+              if (tokenStatus) tokenStatus.textContent = saved ? 'Token loaded' : 'No token saved';
+            } catch {}
+            tokenSaveBtn && tokenSaveBtn.addEventListener('click', () => {
+              try {
+                const v = (tokenInput && tokenInput.value || '').trim();
+                if (!v) { tokenStatus.textContent = 'Enter a token'; return; }
+                localStorage.setItem('dbxAccessToken', v);
+                tokenStatus.textContent = 'Saved';
+              } catch { tokenStatus.textContent = 'Save failed'; }
+            });
+            importBtn && importBtn.addEventListener('click', async () => {
+              const folderUrl = (folderUrlInput && folderUrlInput.value || '').trim();
+              const token = localStorage.getItem('dbxAccessToken') || '';
+              if (!token) { tokenStatus.textContent = 'Save token first'; return; }
+              if (!folderUrl) { tokenStatus.textContent = 'Enter folder link'; return; }
+              tokenStatus.textContent = 'Fetching...';
+              try {
+                const paths = await this.fetchDropboxFolderMp3s(folderUrl, token);
+                if (paths.length === 0) { tokenStatus.textContent = 'No .mp3 files found'; return; }
+                // Convert each path to dl.dropboxusercontent raw URL
+                const urls = paths.map(p => `https://content.dropboxapi.com/2/files/download?arg=${encodeURIComponent(JSON.stringify({ path: p }))}`);
+                // For content API direct links, we'll proxy through fetch during playback; for now, convert to shared-style
+                this.addTracks(urls);
+                tokenStatus.textContent = `Imported ${paths.length} file(s)`;
+              } catch (e) {
+                tokenStatus.textContent = 'Import failed';
+              }
+            });
+            const importNoTokenBtn = document.getElementById('dbx-import-folder-notoken-btn');
+            importNoTokenBtn && importNoTokenBtn.addEventListener('click', async () => {
+              const folderUrl = (folderUrlInput && folderUrlInput.value || '').trim();
+              if (!folderUrl) { tokenStatus.textContent = 'Enter folder link'; return; }
+              tokenStatus.textContent = 'Fetching (no token)...';
+              try {
+                const urls = await this.scrapeDropboxSharedFolderLinks(folderUrl);
+                if (urls.length === 0) { tokenStatus.textContent = 'No .mp3 files found'; return; }
+                this.addTracks(urls);
+                tokenStatus.textContent = `Imported ${urls.length} file(s)`;
+              } catch(e) {
+                tokenStatus.textContent = 'Import failed (no token)';
+              }
+            });
           }
           if (this.playlist.length > 0) { if (this.index < 0 || this.index >= this.playlist.length) this.index = 0; this.load(this.index, false); }
+        },
+        // Given a Dropbox shared folder URL + token, list .mp3 file paths
+        async fetchDropboxFolderMp3s(sharedUrl, token) {
+          // Resolve shared link to path using /2/sharing/get_shared_link_metadata, then list folder
+          const headers = { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' };
+          const metaResp = await fetch('https://api.dropboxapi.com/2/sharing/get_shared_link_metadata', { method: 'POST', headers, body: JSON.stringify({ url: sharedUrl }) });
+          if (!metaResp.ok) throw new Error('metadata');
+          const meta = await metaResp.json();
+          // root path for listing
+          const sharedId = meta.id; // e.g., id:...; use link + path_root via list_folder
+          // Use list_folder with shared_link
+          const listBody = { shared_link: { url: sharedUrl }, recursive: true, include_deleted: false }; 
+          const listResp = await fetch('https://api.dropboxapi.com/2/files/list_folder', { method: 'POST', headers, body: JSON.stringify(listBody) });
+          if (!listResp.ok) throw new Error('list');
+          const list = await listResp.json();
+          const all = (list.entries || []).filter(e => e['.tag'] === 'file' && /\.mp3$/i.test(e.name)).map(e => e.path_lower || e.path_display || e.path);
+          // Handle pagination
+          let cursor = list.cursor;
+          while (list.has_more) {
+            const cResp = await fetch('https://api.dropboxapi.com/2/files/list_folder/continue', { method: 'POST', headers, body: JSON.stringify({ cursor }) });
+            if (!cResp.ok) break;
+            const c = await cResp.json();
+            (c.entries || []).forEach(e => { if (e['.tag'] === 'file' && /\.mp3$/i.test(e.name)) all.push(e.path_lower || e.path_display || e.path); });
+            cursor = c.cursor; list.has_more = c.has_more;
+          }
+          return Array.from(new Set(all));
         },
         openMenu() { if (!this.els.menu) return; this.renderList(); this.els.menu.classList.add('visible'); },
         renderList() {
