@@ -1550,11 +1550,7 @@
                             }
                             
                             let nX = cX - oX, nY = cY - oY;
-                            const sR = lockScreen;
-                            const maxX = sR.clientWidth - el.offsetWidth;
-                            const maxY = sR.clientHeight - el.offsetHeight;
-                            nX = Math.max(0, Math.min(nX, maxX));
-                            nY = Math.max(0, Math.min(nY, maxY));
+                            // Allow moving the widget outside of the screen bounds
                             el.style.left = `${nX}px`; 
                             el.style.top = `${nY}px`;
                             if(['clock', 'stock-widget'].indexOf(el.id) === -1) el.style.transform = 'none';
@@ -2146,32 +2142,57 @@
           w.addEventListener('click', () => { if (!this.audioCtx) this.start(); });
           w.addEventListener('dblclick', (e) => { e.preventDefault(); this.toggleMode(); });
           const getDist = (t) => Math.hypot(t[0].clientX - t[1].clientX, t[0].clientY - t[1].clientY);
+          // Mouse long-press to set mute arc
+          let lpTimer = null, lpStart = {x:0,y:0}, lpMoved = false;
+          w.addEventListener('mousedown', (e) => {
+            if (e.button !== 0) return;
+            if (this.mode !== 'circle') return;
+            lpStart = { x: e.clientX, y: e.clientY };
+            lpMoved = false;
+            const move = (ev) => { if (Math.hypot(ev.clientX - lpStart.x, ev.clientY - lpStart.y) > 8) { lpMoved = true; clearTimeout(lpTimer); document.removeEventListener('mousemove', move); } };
+            const up = () => { clearTimeout(lpTimer); document.removeEventListener('mousemove', move); document.removeEventListener('mouseup', up); };
+            document.addEventListener('mousemove', move);
+            document.addEventListener('mouseup', up, { once: true });
+            clearTimeout(lpTimer);
+            lpTimer = setTimeout(() => { if (!lpMoved) this.handleLongPress(lpStart.x, lpStart.y); }, 600);
+          });
+          // Touch long-press to set mute arc
           w.addEventListener('touchstart', (e) => {
             if (e.touches.length === 2) {
               e.preventDefault();
               this.pinch = { d0: getDist(e.touches), w0: w.offsetWidth, h0: w.offsetHeight, l0: w.offsetLeft, t0: w.offsetTop };
+            } else if (e.touches.length === 1 && this.mode === 'circle') {
+              const t = e.touches[0];
+              lpStart = { x: t.clientX, y: t.clientY }; lpMoved = false;
+              clearTimeout(lpTimer);
+              lpTimer = setTimeout(() => { if (!lpMoved) this.handleLongPress(lpStart.x, lpStart.y); }, 600);
             }
           }, { passive:false });
           w.addEventListener('touchmove', (e) => {
-            if (!this.pinch || e.touches.length !== 2) return;
-            e.preventDefault();
-            const r = getDist(e.touches) / Math.max(1, this.pinch.d0);
-            if (this.mode === 'circle') {
-              const base = Math.min(this.pinch.w0, this.pinch.h0);
-              const ns = Math.max(80, Math.min(2000, Math.round(base * r)));
-              const dW = ns - this.pinch.w0, dH = ns - this.pinch.h0;
-              w.style.width = ns + 'px'; w.style.height = ns + 'px';
-              w.style.left = (this.pinch.l0 - dW/2) + 'px'; w.style.top = (this.pinch.t0 - dH/2) + 'px';
-            } else {
-              const nW = Math.max(120, Math.min(3000, Math.round(this.pinch.w0 * r)));
-              const nH = Math.max(90, Math.min(2000, Math.round(this.pinch.h0 * r)));
-              const dW = nW - this.pinch.w0, dH = nH - this.pinch.h0;
-              w.style.width = nW + 'px'; w.style.height = nH + 'px';
-              w.style.left = (this.pinch.l0 - dW/2) + 'px'; w.style.top = (this.pinch.t0 - dH/2) + 'px';
+            if (e.touches.length === 2) {
+              if (!this.pinch) return;
+              e.preventDefault();
+              const r = getDist(e.touches) / Math.max(1, this.pinch.d0);
+              if (this.mode === 'circle') {
+                const base = Math.min(this.pinch.w0, this.pinch.h0);
+                const ns = Math.max(80, Math.min(2000, Math.round(base * r)));
+                const dW = ns - this.pinch.w0, dH = ns - this.pinch.h0;
+                w.style.width = ns + 'px'; w.style.height = ns + 'px';
+                w.style.left = (this.pinch.l0 - dW/2) + 'px'; w.style.top = (this.pinch.t0 - dH/2) + 'px';
+              } else {
+                const nW = Math.max(120, Math.min(3000, Math.round(this.pinch.w0 * r)));
+                const nH = Math.max(90, Math.min(2000, Math.round(this.pinch.h0 * r)));
+                const dW = nW - this.pinch.w0, dH = nH - this.pinch.h0;
+                w.style.width = nW + 'px'; w.style.height = nH + 'px';
+                w.style.left = (this.pinch.l0 - dW/2) + 'px'; w.style.top = (this.pinch.t0 - dH/2) + 'px';
+              }
+              this.resizeCanvas();
+            } else if (e.touches.length === 1 && this.mode === 'circle') {
+              const t = e.touches[0];
+              if (Math.hypot(t.clientX - lpStart.x, t.clientY - lpStart.y) > 15) { lpMoved = true; clearTimeout(lpTimer); }
             }
-            this.resizeCanvas();
           }, { passive:false });
-          w.addEventListener('touchend', () => { this.pinch = null; }, { passive:true });
+          w.addEventListener('touchend', () => { this.pinch = null; clearTimeout(lpTimer); }, { passive:true });
 
           window.addEventListener('resize', () => this.resizeCanvas());
           this.resizeCanvas();
