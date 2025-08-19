@@ -195,12 +195,12 @@
         /* Visualizer */
         #music-visualizer-widget {
           top: 70%; left: 10%; width: 320px; height: 140px; position: absolute; overflow:hidden; border-radius:12px;
-          background: rgba(0,0,0,0.2); backdrop-filter: blur(5px);
+          background: transparent; backdrop-filter: none; -webkit-backdrop-filter: none; touch-action: none; resize: both; min-width: 180px; min-height: 90px;
         }
         #music-visualizer-canvas { width:100%; height:100%; display:block; }
         #music-visualizer-overlay {
           position:absolute; inset:0; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:6px;
-          color:#fff; background: rgba(0,0,0,0.35);
+          color:#fff; background: transparent; pointer-events: none;
         }
         /* Match index.html circle mode visuals */
         #music-visualizer-widget.circle-mode { background-color: transparent !important; backdrop-filter: none !important; -webkit-backdrop-filter: none !important; border-radius: 50%; }
@@ -1576,7 +1576,7 @@
                                 return;
                             }
                             if (el.isEditing) return;
-                            if (e.target.closest('#music-controls, #remove-gif-btn, #webcam-controls, #note-settings-btn, #webcam-portrait-btn')) return;
+                            if (e.target.closest('#music-controls, .mp3-ctrls, #mp3-progress, #remove-gif-btn, #webcam-controls, #note-settings-btn, #webcam-portrait-btn, #music-visualizer-resize-box')) return;
                             if (e.touches && e.touches.length === 2 && el.id === 'clock') { 
                                 isPinching = true; 
                                 isD = false; 
